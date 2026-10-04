@@ -1,0 +1,6 @@
+{
+    "java.project.referencedLibraries": [
+        "lib/**/*.jar",
+        "/home/andriantsoa/Documents/WorkSpace-Servlet/Split/FrameWork/lib/servlet-api.jar"
+    ]
+}

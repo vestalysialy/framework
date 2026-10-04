@@ -1,0 +1,9 @@
+prochainement : 
+    - api
+    - uplaod de fichier 
+    - session
+    - autorisation
+
+sprint 6 : web api
+
+sprint 7 : mampiditra zavatra anaty formulaire de iny zavatra iny avadika objet     bending
