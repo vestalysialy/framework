@@ -11,6 +11,7 @@ import annotation.Controller;
 import annotation.GetMapping;
 import annotation.PostMapping;
 import annotation.UrlMapping;
+import annotation.RestController;
 
 public class FinderAnnotation {
 
@@ -63,12 +64,11 @@ public class FinderAnnotation {
     }
 
     public static List<Class<?>> findAllControleur(String packageName) throws Exception {
-        // recuperer les classes du package
         List<Class<?>> listClasses = getClassesInPackage(packageName);
         List<Class<?>> listControleurs = new ArrayList<>();
-        // verifier si la classe possede l'annotation @Controller
         for (Class<?> class1 : listClasses) {
-            if (class1.isAnnotationPresent(Controller.class)) {
+            if (class1.isAnnotationPresent(Controller.class)
+                    || class1.isAnnotationPresent(RestController.class)) {   // ← AJOUT
                 listControleurs.add(class1);
             }
         }
