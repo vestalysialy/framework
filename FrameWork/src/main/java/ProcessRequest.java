@@ -13,6 +13,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import util.JsonSerializer;
 import util.MethodExecutor;
 import util.ModelAndView;
 import util.UrlMethod;
@@ -54,9 +55,24 @@ public class ProcessRequest extends HttpServlet {
         }
 
         String httpMethod = req.getMethod();
-        UrlMethod cle = new UrlMethod("/" + output, httpMethod);
+        // ⚠️ Récupérer TOUT le chemin après le context path
+        String contextPath = req.getContextPath();
+        String fullPath = url.substring(contextPath.length());   // "/api/users/42"
 
-        Method method = (urlMap != null) ? urlMap.get(cle) : null;
+        // Chercher une route qui matche (avec ou sans {id})
+        Method method = null;
+        UrlMethod matchedUrl = null;
+
+        if (urlMap != null) {
+            for (Map.Entry<UrlMethod, Method> entry : urlMap.entrySet()) {
+                UrlMethod u = entry.getKey();
+                if (u.matches(fullPath, httpMethod)) {
+                    method = entry.getValue();
+                    matchedUrl = u;
+                    break;
+                }
+            }
+        }
 
         if (method == null) {
             res.setContentType("text/plain;charset=UTF-8");
@@ -76,7 +92,30 @@ public class ProcessRequest extends HttpServlet {
         }
 
         try {
-            Object obj = MethodExecutor.execute(method);
+            // ✅ Extraire les path variables et les mettre dans la requête
+            if (matchedUrl != null) {
+                Map<String, String> pathVars = matchedUrl.extractPathVariables(fullPath);
+                for (Map.Entry<String, String> e : pathVars.entrySet()) {
+                    req.setAttribute("__path_vars_" + e.getKey(), e.getValue());
+                }
+            }
+
+            // ✅ Appel avec req + res
+            Object obj = MethodExecutor.execute(method, req, res);
+
+            // ✅ Détection JSON (RestController ou @ResponseBody ou retour Map/List)
+            boolean isJson = MethodExecutor.isJsonResponse(method)
+                    || obj instanceof Map
+                    || obj instanceof java.util.List
+                    || (obj != null && obj.getClass().isArray());
+
+            if (isJson) {
+                res.setContentType("application/json;charset=UTF-8");
+                res.setCharacterEncoding("UTF-8");
+                PrintWriter out = res.getWriter();
+                out.println(JsonSerializer.toJson(obj));
+                return;
+            }
 
             if (obj instanceof ModelAndView) {
                 ModelAndView mv = (ModelAndView) obj;
@@ -99,9 +138,12 @@ public class ProcessRequest extends HttpServlet {
             out.println("Resultat : " + obj);
 
         } catch (Exception e) {
-            res.setContentType("text/plain;charset=UTF-8");
+            res.setContentType("application/json;charset=UTF-8");
+            res.setStatus(500);
             PrintWriter out = res.getWriter();
-            out.println("Erreur lors de l'execution du methode :" + e);
+            String msg = e.getMessage() == null ? e.toString() : e.getMessage();
+            out.println("{\"error\":\"" + msg.replace("\"", "'") + "\"}");
+            e.printStackTrace();
         }
     }
 

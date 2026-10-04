@@ -10,10 +10,10 @@ public class ApplicationContext {
     private final Map<String, Object> registry = new HashMap<>();
 
     public void initialize() {
-        System.out.println("[MonFramework] Initialisation des composants...");
+        System.out.println("[MonFramework] Initialisation (sans BDD)");
 
         try {
-            Class.forName("org.postgresql.Driver"); 
+            Class.forName("org.postgresql.Driver");
 
             String url = "jdbc:postgresql://localhost:5432/sprint";
             String user = "postgres";
