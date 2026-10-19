@@ -23,7 +23,6 @@ public class MethodExecutor {
         Class<?> classController = method.getDeclaringClass();
         Object instance = classController.getDeclaredConstructor().newInstance();
 
-        // Prépare les arguments
         Parameter[] params = method.getParameters();
         Object[] args = new Object[params.length];
 
@@ -33,12 +32,15 @@ public class MethodExecutor {
 
             if (type == HttpServletRequest.class) {
                 args[i] = req;
+
             } else if (type == HttpServletResponse.class) {
                 args[i] = res;
+
             } else if (p.isAnnotationPresent(PathVariable.class)) {
                 String name = p.getAnnotation(PathVariable.class).value();
                 String value = (String) req.getAttribute("__path_vars_" + name);
                 args[i] = convert(value, type);
+
             } else if (p.isAnnotationPresent(RequestParam.class)) {
                 RequestParam rp = p.getAnnotation(RequestParam.class);
                 String value = req.getParameter(rp.value());
@@ -46,18 +48,31 @@ public class MethodExecutor {
                     throw new IllegalArgumentException("Paramètre requis manquant : " + rp.value());
                 }
                 args[i] = convert(value, type);
+
             } else if (p.isAnnotationPresent(RequestBody.class)) {
-                String body = new String(req.getInputStream().readAllBytes());
-                args[i] = JsonSerializer.fromJson(body, type);
+                // ✅ NOUVEAU : détection du Content-Type
+                String contentType = req.getContentType();
+                if (contentType == null) {
+                    contentType = "";
+                }
+
+                if (contentType.contains("application/x-www-form-urlencoded")) {
+                    // Formulaire HTML classique
+                    args[i] = FormBinder.bind(req, type);
+                } else {
+                    // JSON (par défaut)
+                    String body = new String(req.getInputStream().readAllBytes());
+                    args[i] = JsonSerializer.fromJson(body, type);
+                }
+
             } else {
-                args[i] = null; // non supporté pour l'instant
+                args[i] = null; // non supporté
             }
         }
 
         return method.invoke(instance, args);
     }
 
-    // Helper : conversion simple String → type primitif
     private static Object convert(String value, Class<?> type) {
         if (value == null) return null;
         if (type == String.class) return value;
@@ -68,7 +83,6 @@ public class MethodExecutor {
         return value;
     }
 
-    // Utilitaire : est-ce que le retour doit être en JSON ?
     public static boolean isJsonResponse(Method method) {
         return method.isAnnotationPresent(ResponseBody.class)
             || method.getDeclaringClass().isAnnotationPresent(RestController.class);

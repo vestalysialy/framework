@@ -7,3 +7,9 @@ prochainement :
 sprint 6 : web api
 
 sprint 7 : mampiditra zavatra anaty formulaire de iny zavatra iny avadika objet     bending
+
+sprint 8 : uplaod
+
+sprint 9 : session any utilisateur disponible ao am (méthode d'action) controller any developpeur
+
+faire un bending et faire en sorte qu'il y ait un parametre de fonction annoté 
