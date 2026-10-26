@@ -2,16 +2,17 @@ package util;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
-import java.util.Map;
 
 import annotation.RequestBody;
 import annotation.RequestParam;
 import annotation.PathVariable;
+import annotation.RequestPart;
 import annotation.ResponseBody;
 import annotation.RestController;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.Part;
 
 public class MethodExecutor {
 
@@ -26,6 +27,9 @@ public class MethodExecutor {
         Parameter[] params = method.getParameters();
         Object[] args = new Object[params.length];
 
+        String contentType = req.getContentType();
+        if (contentType == null) contentType = "";
+
         for (int i = 0; i < params.length; i++) {
             Parameter p = params[i];
             Class<?> type = p.getType();
@@ -35,6 +39,12 @@ public class MethodExecutor {
 
             } else if (type == HttpServletResponse.class) {
                 args[i] = res;
+
+            } else if (p.isAnnotationPresent(RequestPart.class)) {
+                // injection d'un fichier uploadé
+                String name = p.getAnnotation(RequestPart.class).value();
+                Part part = req.getPart(name);
+                args[i] = part;
 
             } else if (p.isAnnotationPresent(PathVariable.class)) {
                 String name = p.getAnnotation(PathVariable.class).value();
@@ -50,23 +60,21 @@ public class MethodExecutor {
                 args[i] = convert(value, type);
 
             } else if (p.isAnnotationPresent(RequestBody.class)) {
-                // ✅ NOUVEAU : détection du Content-Type
-                String contentType = req.getContentType();
-                if (contentType == null) {
-                    contentType = "";
-                }
-
-                if (contentType.contains("application/x-www-form-urlencoded")) {
-                    // Formulaire HTML classique
+                // Détection du format
+                if (contentType.contains("multipart/form-data")
+                        || contentType.contains("application/x-www-form-urlencoded")) {
+                    // Formulaire HTML (avec ou sans fichier) :
+                    // Tomcat parse déjà le multipart → les champs texte sont
+                    // accessibles via req.getParameter()
                     args[i] = FormBinder.bind(req, type);
                 } else {
-                    // JSON (par défaut)
+                    // JSON
                     String body = new String(req.getInputStream().readAllBytes());
                     args[i] = JsonSerializer.fromJson(body, type);
                 }
 
             } else {
-                args[i] = null; // non supporté
+                args[i] = null;
             }
         }
 
@@ -84,6 +92,10 @@ public class MethodExecutor {
     }
 
     public static boolean isJsonResponse(Method method) {
+        // Un retour String explicite ne doit PAS être sérialisé en JSON
+        if (method.getReturnType() == String.class) {
+            return false;
+        }
         return method.isAnnotationPresent(ResponseBody.class)
             || method.getDeclaringClass().isAnnotationPresent(RestController.class);
     }
