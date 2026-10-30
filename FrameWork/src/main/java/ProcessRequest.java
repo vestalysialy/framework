@@ -47,7 +47,7 @@ public class ProcessRequest extends HttpServlet {
         this.prefix = context.getInitParameter("view-prefix");
         this.surfix = context.getInitParameter("view-suffix");
 
-        // ✅ Initialisation du dossier d'upload (utilisé par UploadController)
+        // Initialisation du dossier d'upload (utilisé par UploadController)
         String uploadsPath = context.getRealPath("/uploads");
         UploadContext.setUploadDir(uploadsPath);
         System.out.println("[MonFramework] Dossier uploads : " + uploadsPath);
@@ -139,6 +139,15 @@ public class ProcessRequest extends HttpServlet {
             // Invoquer la méthode du contrôleur
             Object obj = MethodExecutor.execute(method, req, res);
 
+            // NOUVEAU : si le contrôleur a déjà écrit/redirigé, on ne fait rien
+            if (res.isCommitted()) {
+                return;
+            }
+
+            // Si la méthode retourne void, on ne fait rien non plus
+            if (method.getReturnType() == void.class) {
+                return;
+            }
             // Détection JSON
             boolean isJson = MethodExecutor.isJsonResponse(method)
                     || obj instanceof Map

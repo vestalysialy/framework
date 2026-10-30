@@ -10,8 +10,10 @@ import annotation.RequestPart;
 import annotation.ResponseBody;
 import annotation.RestController;
 
+import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 import javax.servlet.http.Part;
 
 public class MethodExecutor {
@@ -34,14 +36,22 @@ public class MethodExecutor {
             Parameter p = params[i];
             Class<?> type = p.getType();
 
+            // Objets injectes automatiquement
             if (type == HttpServletRequest.class) {
                 args[i] = req;
 
             } else if (type == HttpServletResponse.class) {
                 args[i] = res;
 
+            } else if (type == HttpSession.class) {
+                // Injecte la session (creee si absente)
+                args[i] = req.getSession();
+
+            } else if (type == ServletContext.class) {
+                // Injecte le contexte applicatif
+                args[i] = req.getServletContext();
+
             } else if (p.isAnnotationPresent(RequestPart.class)) {
-                // injection d'un fichier uploadé
                 String name = p.getAnnotation(RequestPart.class).value();
                 Part part = req.getPart(name);
                 args[i] = part;
@@ -55,20 +65,15 @@ public class MethodExecutor {
                 RequestParam rp = p.getAnnotation(RequestParam.class);
                 String value = req.getParameter(rp.value());
                 if (value == null && rp.required()) {
-                    throw new IllegalArgumentException("Paramètre requis manquant : " + rp.value());
+                    throw new IllegalArgumentException("Parametre requis manquant : " + rp.value());
                 }
                 args[i] = convert(value, type);
 
             } else if (p.isAnnotationPresent(RequestBody.class)) {
-                // Détection du format
                 if (contentType.contains("multipart/form-data")
                         || contentType.contains("application/x-www-form-urlencoded")) {
-                    // Formulaire HTML (avec ou sans fichier) :
-                    // Tomcat parse déjà le multipart → les champs texte sont
-                    // accessibles via req.getParameter()
                     args[i] = FormBinder.bind(req, type);
                 } else {
-                    // JSON
                     String body = new String(req.getInputStream().readAllBytes());
                     args[i] = JsonSerializer.fromJson(body, type);
                 }
@@ -92,7 +97,6 @@ public class MethodExecutor {
     }
 
     public static boolean isJsonResponse(Method method) {
-        // Un retour String explicite ne doit PAS être sérialisé en JSON
         if (method.getReturnType() == String.class) {
             return false;
         }

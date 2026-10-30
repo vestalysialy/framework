@@ -14,3 +14,6 @@ sprint 9 : session any utilisateur disponible ao am (méthode d'action) controll
 
 faire un bending et faire en sorte qu'il y ait un parametre de fonction annoté 
 
+session de l'utilisateur disponible dans (méthode d'action) controller du developpeur
+
+modification niveau framework, fampiasana niveau developpeur
