@@ -189,6 +189,15 @@ public class ProcessRequest extends HttpServlet {
                 out.println("Resultat : " + obj);
             }
 
+        } catch (util.UnauthorizedException e) {
+            // 401 : non authentifie -> redirection vers la page de login
+            res.sendRedirect(req.getContextPath() + "/login.html");
+        } catch (util.ForbiddenException e) {
+            // 403 : role insuffisant
+            res.setContentType("application/json;charset=UTF-8");
+            res.setStatus(403);
+            PrintWriter out = res.getWriter();
+            out.println("{\"error\":\"" + e.getMessage().replace("\"", "'") + "\"}");
         } catch (Exception e) {
             res.setContentType("application/json;charset=UTF-8");
             res.setStatus(500);

@@ -23,6 +23,15 @@ public class MethodExecutor {
             throw new IllegalArgumentException("Methode ne peut pas etre null");
         }
 
+        // Verification d'autorisation AVANT toute execution
+        HttpSession existingSession = req.getSession(false);
+        String authResult = AuthChecker.check(method, existingSession);
+        if ("UNAUTHORIZED".equals(authResult)) {
+            throw new UnauthorizedException("Authentification requise");
+        } else if ("FORBIDDEN".equals(authResult)) {
+            throw new ForbiddenException("Acces refuse : role insuffisant");
+        }
+
         Class<?> classController = method.getDeclaringClass();
         Object instance = classController.getDeclaredConstructor().newInstance();
 
@@ -36,31 +45,21 @@ public class MethodExecutor {
             Parameter p = params[i];
             Class<?> type = p.getType();
 
-            // Objets injectes automatiquement
             if (type == HttpServletRequest.class) {
                 args[i] = req;
-
             } else if (type == HttpServletResponse.class) {
                 args[i] = res;
-
             } else if (type == HttpSession.class) {
-                // Injecte la session (creee si absente)
                 args[i] = req.getSession();
-
             } else if (type == ServletContext.class) {
-                // Injecte le contexte applicatif
                 args[i] = req.getServletContext();
-
             } else if (p.isAnnotationPresent(RequestPart.class)) {
                 String name = p.getAnnotation(RequestPart.class).value();
-                Part part = req.getPart(name);
-                args[i] = part;
-
+                args[i] = req.getPart(name);
             } else if (p.isAnnotationPresent(PathVariable.class)) {
                 String name = p.getAnnotation(PathVariable.class).value();
                 String value = (String) req.getAttribute("__path_vars_" + name);
                 args[i] = convert(value, type);
-
             } else if (p.isAnnotationPresent(RequestParam.class)) {
                 RequestParam rp = p.getAnnotation(RequestParam.class);
                 String value = req.getParameter(rp.value());
@@ -68,7 +67,6 @@ public class MethodExecutor {
                     throw new IllegalArgumentException("Parametre requis manquant : " + rp.value());
                 }
                 args[i] = convert(value, type);
-
             } else if (p.isAnnotationPresent(RequestBody.class)) {
                 if (contentType.contains("multipart/form-data")
                         || contentType.contains("application/x-www-form-urlencoded")) {
@@ -77,7 +75,6 @@ public class MethodExecutor {
                     String body = new String(req.getInputStream().readAllBytes());
                     args[i] = JsonSerializer.fromJson(body, type);
                 }
-
             } else {
                 args[i] = null;
             }
@@ -97,9 +94,7 @@ public class MethodExecutor {
     }
 
     public static boolean isJsonResponse(Method method) {
-        if (method.getReturnType() == String.class) {
-            return false;
-        }
+        if (method.getReturnType() == String.class) return false;
         return method.isAnnotationPresent(ResponseBody.class)
             || method.getDeclaringClass().isAnnotationPresent(RestController.class);
     }
