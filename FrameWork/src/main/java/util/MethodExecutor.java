@@ -24,7 +24,7 @@ public class MethodExecutor {
         }
 
         Class<?> classController = method.getDeclaringClass();
-        Object instance = classController.getDeclaredConstructor().newInstance();
+        Object instance = ControllerRegistry.getInstance().get(classController);
 
         Parameter[] params = method.getParameters();
         Object[] args = new Object[params.length];
